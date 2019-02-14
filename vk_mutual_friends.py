@@ -79,7 +79,7 @@ for id_my_friend in my_friends_list:
                 info_mutual_friends_resp = user.get_users(mutual_friends)
                 info_mutual_friends_list = info_mutual_friends_resp['response']
                 for info_mutual_friends in info_mutual_friends_list:
-                    p_info_mutual_friends = str(info_mutual_friends['id']) + ' ' + info_mutual_friends['first_name'] + ' ' + \
+                    p_info_mutual_friends = info_mutual_friends['first_name'] + ' ' + \
                                        info_mutual_friends['last_name']
                     print('     {} {} '.format(mutual_friends, p_info_mutual_friends))
 
