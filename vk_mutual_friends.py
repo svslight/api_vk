@@ -2,10 +2,10 @@ import requests
 import json
 from pprint import pprint
 from urllib.parse import urlencode
+import time
 
 # id-приложения
 APP_ID = 6854454
-
 # Авторизация
 AUTH_URL = 'https://oauth.vk.com/authorize'
 auth_data = {
@@ -15,75 +15,123 @@ auth_data = {
     'response_type': 'token',
     'v': '5.92',
     }
-
-TOKEN = '9570e65128ca5ef049f7acb08267f6e21262f07c600583e8aa09add5eff22eeb196a2d13fd27b6d606ce8'
-user_id = 435315664
-
-# Получение ссылки на адрес Токен
+# Получить Токен
 # print('?'.join((AUTH_URL, urlencode(auth_data))))
 
+# TOKEN = '9b0ba4bb04f6f34dbddb6b38d74ad3257fcdf7a67f17965cac880644ed6bdc4610438512aa1875ceb08d9'
+user_id = 435315664
+
 class User:
-    def __init__(self, token):
-        self.token = token
+    api_url = 'https://api.vk.com/method/'
+    params = {
+        'access_token': '9b0ba4bb04f6f34dbddb6b38d74ad3257fcdf7a67f17965cac880644ed6bdc4610438512aa1875ceb08d9',
+        'v': '5.92',
+        'user_id': 435315664,
+    }
 
-    def get_params(self):
-        return{
-            'v': '5.92',
-            'access_token': TOKEN,
-            'user_id': user_id,
-        }
+    def __init__(self, user_id, friend=None, mutual=None, friends_list=None, each_friend_list=None):
+        self.user_id = user_id
+        self.friend = friend
+        self.mutual = mutual
+        self.friends_list = friends_list
+        self.each_friend_list = each_friend_list
 
-    def get_friends(self, usr):
-        # params = self.get_params()
-        response = requests.get('https://api.vk.com/method/friends.get', params={'access_token': TOKEN,
-                                                                                 'user_id': usr,
-                                                                                 'v': '5.92'
-                                                                                 })
+    # Фрматирование пути url-method ( https://api.vk.com/method//friends.get )
+    def format_url(self, method_name):
+        return f'{self.api_url}/{method_name}'
 
-        resp_json = response.json()
-        return resp_json
+    # Выполнение запроса методов
+    def make_request_method(self, method_name, user_id=None):
+        method_url = self.format_url(method_name)
 
-    def get_users(self, usr):
-        response = requests.get('https://api.vk.com/method/users.get', params={'access_token': TOKEN,
-                                                                               'user_id': usr,
-                                                                               'first_name': 'Имя',
-                                                                               'last_name': 'Фамилия',
-                                                                               'v': '5.92'
-                                                                               })
+        params = self.params.copy()
+        params['user_id'] = user_id or self.user_id
 
-        resp_json = response.json()
-        return resp_json
+        result = requests.get(method_url, params=params).json()
+        time.sleep(0.35)
 
+        return result
 
-user = User(TOKEN)
-
-friends_response = user.get_friends(user_id)
-my_friends_list = set(friends_response['response']['items'])
-
-print('Наши общие друзья с:')
-for id_my_friend in my_friends_list:
-    resp = user.get_friends(id_my_friend)
-    each_friend_list = set(resp['response']['items'])
-
-    intersection_friends = set.intersection(my_friends_list, each_friend_list)
-
-    info_my_friend_resp = user.get_users(id_my_friend)
-    info_my_friend_list = info_my_friend_resp['response']
-
-    if len(intersection_friends):
-        for info_my_friend in info_my_friend_list:
-            p_info_my_friend = str(info_my_friend['id']) + ' ' + info_my_friend['first_name'] + ' ' + info_my_friend['last_name']
-            print(' {}: '.format(p_info_my_friend))
-
-            for mutual_friends in intersection_friends:
-                info_mutual_friends_resp = user.get_users(mutual_friends)
-                info_mutual_friends_list = info_mutual_friends_resp['response']
-                for info_mutual_friends in info_mutual_friends_list:
-                    p_info_mutual_friends = info_mutual_friends['first_name'] + ' ' + \
-                                       info_mutual_friends['last_name']
-                    print('     {} {} '.format(mutual_friends, p_info_mutual_friends))
+    # def __add__(self):
+    #     inter = self.friends_list & self.each_friend_list
+    #     return inter
 
 
+    def get_friends(self, user_id=None):
+        return self.make_request_method('friends.get', user_id)
+
+    def get_users(self, user_ids):
+        method_url = self.format_url('users.get')
+        params = self.params.copy()
+        params['first_name'] = 'Имя'
+        params['last_name'] = 'Фамилия'
+        params['user_ids'] = user_ids
+
+        result = requests.get(method_url, params=params).json()
+        time.sleep(0.35)
+
+        return result
+
+    def friend_object_factory(self, friend):
+        friend_info = friend['first_name'] + ' ' + friend['last_name'] + ' ' + str(friend['id'])
+        return ' {}: '.format(friend_info)
+        # return self.friend_info
+
+    def mutual_object_factory(self, mutual):
+        mutual_info = str(mutual['id']) + ' ' + mutual['first_name'] + ' ' + mutual['last_name']
+        return '   - {} '.format(mutual_info)
+        # return self.mutual_info
+
+    # def __str__(self):
+    #     if self.friend:
+    #         rep = ' {}: '.format(self.friend_info)
+    #     elif self.mutual:
+    #         rep = '    {} '.format(self.mutual_info)
+    #     return rep
 
 
+def main():
+    user = User(user_id)
+
+    friends_response = user.get_friends()
+
+    friends_list = set(friends_response['response']['items'])
+
+    print('Наши общие друзья с:')
+    # print(my_friends_list)
+    for id_my_friend in friends_list:
+        resp = user.get_friends(id_my_friend)
+
+        each_friend_list = set(resp['response']['items'])
+
+        # intersection = User(friends_list, each_friend_list)
+        # intersection_add = intersection
+        # print('intersection_add', intersection_add)
+
+        intersection_friends = friends_list & each_friend_list
+        # print('intersection_friends= ', intersection_friends)
+
+        info_my_friend_resp = user.get_users(id_my_friend)
+        info_my_friend_list = info_my_friend_resp['response']
+
+        # print(info_my_friend_list)
+
+        if len(intersection_friends):
+            for friend in info_my_friend_list:
+                friend_info = User(friend)
+                friends_info = friend_info.friend_object_factory(friend)
+                print(friends_info)
+
+                for mutual_friends_id in intersection_friends:
+                    mutual_friends_resp = user.get_users(mutual_friends_id)
+                    mutual_friends_list = mutual_friends_resp['response']
+
+                    for mutual in mutual_friends_list:
+                        mutual_info = User(mutual)
+                        mutual_friends_info = mutual_info.mutual_object_factory(mutual)
+                        print(mutual_friends_info)
+
+
+if __name__ == '__main__':
+    main()
 
